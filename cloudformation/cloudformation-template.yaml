@@ -1,0 +1,98 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  MyIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: "/"
+      Policies:
+        - PolicyName: 'S3AccessPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                Resource:
+                  - 'arn:aws:s3:::customset-intuit/*' # Replace with your bucket name
+
+  MyInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: "/"
+      Roles:
+        - !Ref MyIAMRole
+
+  MyEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: 't2.micro'
+      ImageId: 'ami-04fdea8e25817cd69' # Replace with a suitable Amazon Linux AMI ID
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      IamInstanceProfile: !Ref MyInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          
+          # Redirect all output (stdout and stderr) to a log file
+          exec > /home/ec2-user/setup.log 2>&1
+          
+          sudo yum update -y
+          
+          # Download and extract OpenJDK
+          aws s3 cp s3://customset-intuit/openjdk-22.0.2_linux-x64_bin.tar.gz /home/ec2-user/
+          tar -xvf /home/ec2-user/openjdk-22.0.2_linux-x64_bin.tar.gz
+          sudo mv jdk-22.0.2 /usr/local/
+          
+          # Remove the tarball to save space
+          sudo rm /home/ec2-user/openjdk-22.0.2_linux-x64_bin.tar.gz
+          
+          # Set JAVA_HOME and update PATH
+          export JAVA_HOME=/usr/local/jdk-22.0.2
+          export PATH=$JAVA_HOME/bin:$PATH
+          
+          # Verify that the variables are set correctly
+          echo "JAVA_HOME is set to $JAVA_HOME"
+          echo "PATH is set to $PATH"
+          
+          # Download the application JAR
+          aws s3 cp s3://customset-intuit/customSet-0.0.1-SNAPSHOT.jar /home/ec2-user/
+          
+          # Create a log directory
+          mkdir -p /home/ec2-user/log
+          
+          # Run the Java application and log output
+          java -jar /home/ec2-user/customSet-0.0.1-SNAPSHOT.jar > /home/ec2-user/log/app.log 2>&1 &
+          
+          # Confirm that the application has started
+          echo "Java application has been started and is logging to /home/ec2-user/log/app.log"         
+
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow HTTP and SSH access'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '8080'
+          ToPort: '8080'
+          CidrIp: '0.0.0.0/0'
+
+Outputs:
+  InstancePublicIP:
+    Description: 'Public IP of the EC2 instance'
+    Value: !GetAtt MyEC2Instance.PublicIp
