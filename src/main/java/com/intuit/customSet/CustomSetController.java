@@ -27,7 +27,7 @@ public class CustomSetController {
                 return ResponseEntity.status(HttpStatus.CREATED).body("Item added successfully");
             }
             else {
-                return ResponseEntity.status(HttpStatus.CREATED).body("Item already exists");
+                return ResponseEntity.status(HttpStatus.OK).body("Item already exists");
             }
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -52,7 +52,7 @@ public class CustomSetController {
                 return ResponseEntity.status(HttpStatus.OK).body("Item removed successfully");
             }
             else {
-                return ResponseEntity.status(HttpStatus.OK).body("Item does not exist");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Item does not exist");
             }
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());

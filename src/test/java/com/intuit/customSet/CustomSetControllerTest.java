@@ -1,5 +1,6 @@
 package com.intuit.customSet;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,9 +24,16 @@ class CustomSetControllerTest {
     @MockBean
     private CustomSet customSet;
 
+    @BeforeEach
+    void setUp() {
+        // Reset the mock before each test
+        Mockito.reset(customSet);
+    }
+
     @Test
     void testAddItem_Success() throws Exception {
         // Mocking that the item was added successfully
+        setUp();
         when(customSet.add(55555)).thenReturn(true);
 
 
@@ -34,6 +42,18 @@ class CustomSetControllerTest {
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated())
                 .andExpect(content().string("Item added successfully"));
+    }
+
+    @Test
+    void testAddItem_AlreadyExists() throws Exception {
+        setUp();
+        when(customSet.add(100)).thenReturn(false);
+
+        mockMvc.perform(post("/api/set/add")
+                .content("100")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Item already exists"));
     }
 
     @Test
@@ -153,7 +173,7 @@ class CustomSetControllerTest {
         mockMvc.perform(delete("/api/set/remove")
                 .content("200")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
+                .andExpect(status().isNotFound())
                 .andExpect(content().string("Item does not exist"));
     }
 
